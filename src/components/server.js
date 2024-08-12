@@ -2,9 +2,7 @@ import { config } from "dotenv";
 import express from "express";
 import axios from "axios";
 import schedule from "node-schedule";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
+import { MongoClient } from "mongodb";
 import { decode } from "html-entities";
 
 config();
@@ -14,27 +12,27 @@ const port = process.env.PORT || 3000;
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+const MONGODB_URI = process.env.MONGODB_URI;
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const SENT_NEWS_FILE = path.join(__dirname, "sentNewsUrls.json");
+const client = new MongoClient(MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+const dbName = "telegrambot";
+const collectionName = "sentNewsUrls";
 
-const MAX_NEWS_COUNT = 600;
-const CLEANUP_COUNT = 300;
+let db, collection;
 
-const readSentNewsUrls = () => {
-  if (fs.existsSync(SENT_NEWS_FILE)) {
-    return new Set(JSON.parse(fs.readFileSync(SENT_NEWS_FILE, "utf8")));
+const connectToDatabase = async () => {
+  try {
+    await client.connect();
+    db = client.db(dbName);
+    collection = db.collection(collectionName);
+    console.log("Connected to MongoDB.");
+  } catch (error) {
+    console.error("Error connecting to MongoDB:", error);
   }
-  return new Set();
 };
-
-const saveSentNewsUrls = (urls) => {
-  fs.writeFileSync(SENT_NEWS_FILE, JSON.stringify(Array.from(urls)), "utf8");
-};
-
-let sentNewsUrls = readSentNewsUrls();
-console.log("URLs de noticias enviadas al iniciar:", sentNewsUrls.size);
 
 const decodeHTML = (html) => {
   return decode(html);
@@ -43,7 +41,7 @@ const decodeHTML = (html) => {
 const getCryptoNews = async () => {
   try {
     const response = await axios.get("https://api.coingecko.com/api/v3/news");
-    console.log("Datos de noticias:", response.data.data); // Agrega esto para verificar los datos de noticias
+    console.log("Datos de noticias:", response.data.data);
     return response.data.data || [];
   } catch (error) {
     console.error("Error fetching news:", error);
@@ -113,27 +111,23 @@ const handleNewNews = async () => {
 
   let newArticlesCount = 0;
 
+  // Get existing URLs from MongoDB
+  const existingUrls = new Set(
+    (await collection.find().toArray()).map((doc) => doc.url)
+  );
+
   for (const article of articles) {
     console.log("Comparando URL:", article.url);
-    if (!sentNewsUrls.has(article.url)) {
+    if (!existingUrls.has(article.url)) {
       console.log("Enviando noticia nueva con URL:", article.url);
       await sendToTelegram(article);
-      sentNewsUrls.add(article.url); // Agregar la URL al conjunto de URLs enviadas
+
+      // Save URL to MongoDB
+      await collection.insertOne({ url: article.url });
       newArticlesCount++;
     }
   }
 
-  if (sentNewsUrls.size > MAX_NEWS_COUNT) {
-    // Limpiar URLs antiguas
-    const urlsArray = Array.from(sentNewsUrls);
-    sentNewsUrls = new Set(urlsArray.slice(CLEANUP_COUNT));
-  }
-
-  saveSentNewsUrls(sentNewsUrls);
-  console.log(
-    "URLs almacenadas después de enviar noticias:",
-    sentNewsUrls.size
-  );
   console.log("Número de artículos nuevos enviados:", newArticlesCount);
 };
 
@@ -147,6 +141,7 @@ app.get("/", (req, res) => {
   res.send("Crypto News Backend is running.");
 });
 
-app.listen(port, () => {
+app.listen(port, async () => {
+  await connectToDatabase();
   console.log(`Server is running on http://localhost:${port}`);
 });
