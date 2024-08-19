@@ -1,0 +1,15 @@
+name: Schedule Cron Job
+
+on:
+  schedule:
+    - cron: "*/1 * * * *" # Cada minuto
+  workflow_dispatch: # Permite ejecutar el flujo de trabajo manualmente desde GitHub
+
+jobs:
+  run-cron-job:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Cron Job
+        run: |
+          curl -X GET "https://telegrambot-kohl-iota.vercel.app/api/cron"
