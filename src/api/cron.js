@@ -4,12 +4,14 @@ import { config } from "dotenv";
 import { MongoClient } from "mongodb";
 import { decode } from "html-entities";
 
+// Cargar variables de entorno
 config();
 
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const MONGODB_URI = process.env.MONGODB_URI;
 
+// Configuración de MongoDB
 const client = new MongoClient(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -19,20 +21,22 @@ const collectionName = "sentNewsUrls";
 
 let db, collection;
 
+// Conectar a la base de datos
 const connectToDatabase = async () => {
   try {
     await client.connect();
     db = client.db(dbName);
     collection = db.collection(collectionName);
+    console.log("Connected to MongoDB.");
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
   }
 };
 
-const decodeHTML = (html) => {
-  return decode(html);
-};
+// Decodificar HTML
+const decodeHTML = (html) => decode(html);
 
+// Obtener noticias de criptomonedas
 const getCryptoNews = async () => {
   try {
     const response = await axios.get("https://api.coingecko.com/api/v3/news");
@@ -43,6 +47,7 @@ const getCryptoNews = async () => {
   }
 };
 
+// Obtener noticias enviadas desde Telegram
 const getSentNewsFromTelegram = async () => {
   try {
     const response = await axios.get(
@@ -71,6 +76,7 @@ const getSentNewsFromTelegram = async () => {
   }
 };
 
+// Enviar mensaje a Telegram
 const sendToTelegram = async (article) => {
   const message = `
     📰 *${decodeHTML(article.title)}*
@@ -96,6 +102,7 @@ const sendToTelegram = async (article) => {
   }
 };
 
+// Manejar las noticias nuevas
 const handleNewNews = async () => {
   await connectToDatabase();
   const articles = await getCryptoNews();
@@ -103,6 +110,7 @@ const handleNewNews = async () => {
 
   let newArticlesCount = 0;
 
+  // Obtener URLs existentes en MongoDB
   const existingUrls = new Set(
     (await collection.find().toArray()).map((doc) => doc.url)
   );
@@ -118,8 +126,4 @@ const handleNewNews = async () => {
   console.log("Número de artículos nuevos enviados:", newArticlesCount);
 };
 
-export default async function handler(req, res) {
-  console.log("Cron job ejecutado a:", new Date().toISOString());
-  await handleNewNews();
-  res.status(200).json({ message: "Cron job ejecutado correctamente." });
-}
+export default handleNewNews;

@@ -19,7 +19,7 @@
   "crons": [
     {
       "path": "/api/cron",
-      "schedule": "* * * * *" // Ejecutar cada minuto
+      "schedule": "* * * * *"
     }
   ]
 }
