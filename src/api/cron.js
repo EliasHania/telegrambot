@@ -17,7 +17,12 @@ const collectionName = "sentNewsUrls";
 
 let db, collection;
 
+// Conectar a la base de datos y mantener la conexión abierta
 const connectToDatabase = async () => {
+  if (db && collection) {
+    return; // Conexión ya establecida
+  }
+
   try {
     await client.connect();
     db = client.db(dbName);
@@ -25,6 +30,7 @@ const connectToDatabase = async () => {
     console.log("Connected to MongoDB.");
   } catch (error) {
     console.error("Error connecting to MongoDB:", error);
+    throw error;
   }
 };
 
@@ -95,6 +101,8 @@ const sendToTelegram = async (article) => {
 
 const handleNewNews = async () => {
   try {
+    await connectToDatabase(); // Asegúrate de conectar a la base de datos
+
     const articles = await getCryptoNews();
     const sentUrls = await getSentNewsFromTelegram();
 
@@ -119,6 +127,8 @@ const handleNewNews = async () => {
 
 const deleteOldNews = async () => {
   try {
+    await connectToDatabase(); // Asegúrate de conectar a la base de datos
+
     const now = new Date();
     const threeDaysAgo = new Date(now.setDate(now.getDate() - 3));
 
@@ -136,12 +146,13 @@ const deleteOldNews = async () => {
 cron.schedule("*/1 * * * *", async () => {
   console.log("Cron job executed at:", new Date().toISOString());
 
-  // Primero, eliminar noticias antiguas
-  await deleteOldNews();
+  try {
+    // Primero, eliminar noticias antiguas
+    await deleteOldNews();
 
-  // Luego, manejar nuevas noticias
-  await handleNewNews();
+    // Luego, manejar nuevas noticias
+    await handleNewNews();
+  } catch (error) {
+    console.error("Error in cron job:", error);
+  }
 });
-
-// Iniciar conexión a la base de datos
-connectToDatabase().catch(console.error);
