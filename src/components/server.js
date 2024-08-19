@@ -127,6 +127,17 @@ cron.schedule("*/1 * * * *", async () => {
   await handleNewNews();
 });
 
+// Ruta para ejecutar el cron job manualmente
+app.get("/test-cron", async (req, res) => {
+  try {
+    await handleNewNews();
+    res.status(200).send("Cron job executed successfully.");
+  } catch (error) {
+    console.error("Error executing cron job:", error);
+    res.status(500).send("Error executing cron job.");
+  }
+});
+
 // Ruta de prueba
 app.get("/", (req, res) => {
   res.send("Crypto News Backend is running.");
