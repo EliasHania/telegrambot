@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Trigger Cron Job
+      - name: Send Message to Telegram
         run: |
-          curl -X GET "https://telegrambot-kohl-iota.vercel.app/api/cron"
+          curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
+          -d text="Este es un mensaje de prueba desde GitHub Actions."
