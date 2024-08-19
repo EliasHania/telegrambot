@@ -99,6 +99,8 @@ const sendToTelegram = async (article) => {
 
 const handleNewNews = async () => {
   try {
+    await connectToDatabase(); // Asegúrate de conectar a la base de datos
+
     const articles = await getCryptoNews();
     const sentUrls = await getSentNewsFromTelegram();
 
