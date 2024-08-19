@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 import express from "express";
 import axios from "axios";
-import cron from "node-cron"; // Cambiado de 'node-schedule' a 'node-cron'
+import cron from "node-cron";
 import { MongoClient } from "mongodb";
 import { decode } from "html-entities";
 
@@ -11,19 +11,16 @@ config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configuración de variables de entorno
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const MONGODB_URI = process.env.MONGODB_URI;
 
-// Configuración de MongoDB
 const client = new MongoClient(MONGODB_URI);
 const dbName = "telegrambot";
 const collectionName = "sentNewsUrls";
 
 let db, collection;
 
-// Función para conectar a la base de datos
 const connectToDatabase = async () => {
   try {
     await client.connect();
@@ -35,16 +32,11 @@ const connectToDatabase = async () => {
   }
 };
 
-// Función para decodificar HTML
-const decodeHTML = (html) => {
-  return decode(html);
-};
+const decodeHTML = (html) => decode(html);
 
-// Función para obtener noticias de criptomonedas
 const getCryptoNews = async () => {
   try {
     const response = await axios.get("https://api.coingecko.com/api/v3/news");
-    console.log("Datos de noticias:", response.data.data);
     return response.data.data || [];
   } catch (error) {
     console.error("Error fetching news:", error);
@@ -52,7 +44,6 @@ const getCryptoNews = async () => {
   }
 };
 
-// Función para obtener noticias enviadas desde Telegram
 const getSentNewsFromTelegram = async () => {
   try {
     const response = await axios.get(
@@ -81,7 +72,6 @@ const getSentNewsFromTelegram = async () => {
   }
 };
 
-// Función para enviar noticias a Telegram
 const sendToTelegram = async (article) => {
   const message = `
     📰 *${decodeHTML(article.title)}*
@@ -107,41 +97,34 @@ const sendToTelegram = async (article) => {
   }
 };
 
-// Función para manejar las noticias nuevas
 const handleNewNews = async () => {
-  const articles = await getCryptoNews();
-  const sentUrls = await getSentNewsFromTelegram();
+  try {
+    const articles = await getCryptoNews();
+    const sentUrls = await getSentNewsFromTelegram();
 
-  console.log("Noticias recibidas desde la API:", articles.length);
-  console.log("URLs enviadas desde Telegram:", sentUrls.length);
+    let newArticlesCount = 0;
+    const existingUrls = new Set(
+      (await collection.find().toArray()).map((doc) => doc.url)
+    );
 
-  let newArticlesCount = 0;
-
-  // Obtener URLs existentes en MongoDB
-  const existingUrls = new Set(
-    (await collection.find().toArray()).map((doc) => doc.url)
-  );
-
-  for (const article of articles) {
-    console.log("Comparando URL:", article.url);
-    if (!existingUrls.has(article.url)) {
-      console.log("Enviando noticia nueva con URL:", article.url);
-      await sendToTelegram(article);
-
-      // Guardar la URL en MongoDB
-      await collection.insertOne({ url: article.url });
-      newArticlesCount++;
+    for (const article of articles) {
+      if (!existingUrls.has(article.url)) {
+        await sendToTelegram(article);
+        await collection.insertOne({ url: article.url });
+        newArticlesCount++;
+      }
     }
-  }
 
-  console.log("Número de artículos nuevos enviados:", newArticlesCount);
+    console.log("Número de artículos nuevos enviados:", newArticlesCount);
+  } catch (error) {
+    console.error("Error handling news:", error);
+  }
 };
 
 // Configurar el cron job para ejecutar cada minuto
-cron.schedule("*/1 * * * *", () => {
-  console.log("Job ejecutado a:", new Date().toISOString());
-  console.log("Ejecutando handleNewNews...");
-  handleNewNews();
+cron.schedule("*/1 * * * *", async () => {
+  console.log("Cron job executed at:", new Date().toISOString());
+  await handleNewNews();
 });
 
 // Ruta de prueba
