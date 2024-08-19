@@ -2,7 +2,7 @@ name: Schedule Cron Job
 
 on:
   schedule:
-    - cron: "*/1 * * * *" # Cada minuto
+    - cron: "*/1 * * * *" # Ejecutar cada minuto
   workflow_dispatch: # Permite ejecutar el flujo de trabajo manualmente desde GitHub
 
 jobs:
@@ -10,8 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Send Message to Telegram
-        run: |
-          curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
-          -d chat_id="${{ secrets.TELEGRAM_CHAT_ID }}" \
-          -d text="Este es un mensaje de prueba desde GitHub Actions."
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16" # Usa la versión de Node.js que tu proyecto necesita
+
+      - name: Install dependencies
+        run: npm install
+        working-directory: ./src # Asegúrate de que la ruta es correcta
+
+      - name: Run cron job
+        run: node src/api/cron.js
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
