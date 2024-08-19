@@ -110,7 +110,10 @@ const handleNewNews = async () => {
     for (const article of articles) {
       if (!existingUrls.has(article.url)) {
         await sendToTelegram(article);
-        await collection.insertOne({ url: article.url });
+        await collection.insertOne({
+          url: article.url,
+          date: new Date(), // Guarda la fecha actual
+        });
         newArticlesCount++;
       }
     }
@@ -121,16 +124,43 @@ const handleNewNews = async () => {
   }
 };
 
+// Eliminar noticias que sean más antiguas de 3 días
+const deleteOldNews = async () => {
+  try {
+    const now = new Date();
+    const threeDaysAgo = new Date(now.setDate(now.getDate() - 3));
+
+    // Eliminar todas las noticias que sean más antiguas de 3 días
+    const result = await collection.deleteMany({
+      date: { $lt: threeDaysAgo },
+    });
+
+    console.log(`Deleted ${result.deletedCount} old news articles.`);
+  } catch (error) {
+    console.error("Error deleting old news:", error);
+  }
+};
+
 // Configurar el cron job para ejecutar cada minuto
 cron.schedule("*/1 * * * *", async () => {
   console.log("Cron job executed at:", new Date().toISOString());
+
+  // Primero, eliminar noticias antiguas
+  await deleteOldNews();
+
+  // Luego, manejar nuevas noticias
   await handleNewNews();
 });
 
 // Ruta para ejecutar el cron job manualmente
 app.get("/test-cron", async (req, res) => {
   try {
+    // Primero, eliminar noticias antiguas
+    await deleteOldNews();
+
+    // Luego, manejar nuevas noticias
     await handleNewNews();
+
     res.status(200).send("Cron job executed successfully.");
   } catch (error) {
     console.error("Error executing cron job:", error);
