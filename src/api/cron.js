@@ -2,7 +2,7 @@ import axios from "axios";
 import { config } from "dotenv";
 import { MongoClient } from "mongodb";
 import { decode } from "html-entities";
-import cron from "node-cron"; // Importa cron para la programación
+import cron from "node-cron";
 
 // Cargar variables de entorno
 config();
@@ -11,17 +11,12 @@ const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const MONGODB_URI = process.env.MONGODB_URI;
 
-// Configuración de MongoDB
-const client = new MongoClient(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+const client = new MongoClient(MONGODB_URI);
 const dbName = "telegrambot";
 const collectionName = "sentNewsUrls";
 
 let db, collection;
 
-// Conectar a la base de datos
 const connectToDatabase = async () => {
   try {
     await client.connect();
@@ -33,10 +28,8 @@ const connectToDatabase = async () => {
   }
 };
 
-// Decodificar HTML
 const decodeHTML = (html) => decode(html);
 
-// Obtener noticias de criptomonedas
 const getCryptoNews = async () => {
   try {
     const response = await axios.get("https://api.coingecko.com/api/v3/news");
@@ -47,7 +40,6 @@ const getCryptoNews = async () => {
   }
 };
 
-// Obtener noticias enviadas desde Telegram
 const getSentNewsFromTelegram = async () => {
   try {
     const response = await axios.get(
@@ -76,7 +68,6 @@ const getSentNewsFromTelegram = async () => {
   }
 };
 
-// Enviar mensaje a Telegram
 const sendToTelegram = async (article) => {
   const message = `
     📰 *${decodeHTML(article.title)}*
@@ -102,40 +93,35 @@ const sendToTelegram = async (article) => {
   }
 };
 
-// Manejar las noticias nuevas
 const handleNewNews = async () => {
-  await connectToDatabase();
-  const articles = await getCryptoNews();
-  const sentUrls = await getSentNewsFromTelegram();
+  try {
+    const articles = await getCryptoNews();
+    const sentUrls = await getSentNewsFromTelegram();
 
-  let newArticlesCount = 0;
+    const existingUrls = new Set(
+      (await collection.find().toArray()).map((doc) => doc.url)
+    );
 
-  // Obtener URLs existentes en MongoDB
-  const existingUrls = new Set(
-    (await collection.find().toArray()).map((doc) => doc.url)
-  );
+    const newArticles = articles.filter(
+      (article) => !existingUrls.has(article.url)
+    );
 
-  for (const article of articles) {
-    if (!existingUrls.has(article.url)) {
+    for (const article of newArticles) {
       await sendToTelegram(article);
-      await collection.insertOne({
-        url: article.url,
-        date: new Date(), // Guarda la fecha actual
-      });
-      newArticlesCount++;
+      await collection.insertOne({ url: article.url, date: new Date() });
     }
-  }
 
-  console.log("Número de artículos nuevos enviados:", newArticlesCount);
+    console.log("Número de artículos nuevos enviados:", newArticles.length);
+  } catch (error) {
+    console.error("Error handling news:", error);
+  }
 };
 
-// Eliminar noticias antiguas
 const deleteOldNews = async () => {
   try {
     const now = new Date();
     const threeDaysAgo = new Date(now.setDate(now.getDate() - 3));
 
-    // Eliminar todas las noticias que sean más antiguas de 3 días
     const result = await collection.deleteMany({
       date: { $lt: threeDaysAgo },
     });
@@ -156,3 +142,6 @@ cron.schedule("*/1 * * * *", async () => {
   // Luego, manejar nuevas noticias
   await handleNewNews();
 });
+
+// Iniciar conexión a la base de datos
+connectToDatabase().catch(console.error);

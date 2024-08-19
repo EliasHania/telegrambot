@@ -102,35 +102,32 @@ const handleNewNews = async () => {
     const articles = await getCryptoNews();
     const sentUrls = await getSentNewsFromTelegram();
 
-    let newArticlesCount = 0;
     const existingUrls = new Set(
       (await collection.find().toArray()).map((doc) => doc.url)
     );
 
-    for (const article of articles) {
-      if (!existingUrls.has(article.url)) {
-        await sendToTelegram(article);
-        await collection.insertOne({
-          url: article.url,
-          date: new Date(), // Guarda la fecha actual
-        });
-        newArticlesCount++;
-      }
+    const newArticles = articles.filter(
+      (article) => !existingUrls.has(article.url)
+    );
+
+    // Solo guarda nuevos artículos
+    for (const article of newArticles) {
+      await sendToTelegram(article);
+      await collection.insertOne({ url: article.url, date: new Date() });
     }
 
-    console.log("Número de artículos nuevos enviados:", newArticlesCount);
+    console.log("Número de artículos nuevos enviados:", newArticles.length);
   } catch (error) {
     console.error("Error handling news:", error);
   }
 };
 
-// Eliminar noticias que sean más antiguas de 3 días
+// Eliminar noticias antiguas
 const deleteOldNews = async () => {
   try {
     const now = new Date();
     const threeDaysAgo = new Date(now.setDate(now.getDate() - 3));
 
-    // Eliminar todas las noticias que sean más antiguas de 3 días
     const result = await collection.deleteMany({
       date: { $lt: threeDaysAgo },
     });
@@ -155,12 +152,8 @@ cron.schedule("*/1 * * * *", async () => {
 // Ruta para ejecutar el cron job manualmente
 app.get("/test-cron", async (req, res) => {
   try {
-    // Primero, eliminar noticias antiguas
     await deleteOldNews();
-
-    // Luego, manejar nuevas noticias
     await handleNewNews();
-
     res.status(200).send("Cron job executed successfully.");
   } catch (error) {
     console.error("Error executing cron job:", error);
