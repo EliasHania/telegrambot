@@ -19,18 +19,16 @@ let db, collection;
 
 // Conectar a la base de datos y mantener la conexión abierta
 const connectToDatabase = async () => {
-  if (db && collection) {
-    return; // Conexión ya establecida
-  }
-
-  try {
-    await client.connect();
-    db = client.db(dbName);
-    collection = db.collection(collectionName);
-    console.log("Connected to MongoDB.");
-  } catch (error) {
-    console.error("Error connecting to MongoDB:", error);
-    throw error;
+  if (!client.isConnected()) {
+    try {
+      await client.connect();
+      db = client.db(dbName);
+      collection = db.collection(collectionName);
+      console.log("Connected to MongoDB.");
+    } catch (error) {
+      console.error("Error connecting to MongoDB:", error);
+      throw error;
+    }
   }
 };
 
@@ -114,17 +112,17 @@ const handleNewNews = async () => {
       (article) => !existingUrls.has(article.url)
     );
 
+    if (newArticles.length === 0) {
+      console.log("No hay noticias nuevas.");
+      return; // Solo salimos si no hay nuevas noticias
+    }
+
     for (const article of newArticles) {
       await sendToTelegram(article);
       await collection.insertOne({ url: article.url, date: new Date() });
     }
 
     console.log("Número de artículos nuevos enviados:", newArticles.length);
-
-    if (newArticles.length === 0) {
-      console.log("No hay noticias nuevas. Deteniendo el cron job...");
-      process.exit(0); // Detiene la ejecución del cron job
-    }
   } catch (error) {
     console.error("Error handling news:", error);
   }
@@ -147,8 +145,8 @@ const deleteOldNews = async () => {
   }
 };
 
-// Configurar el cron job para ejecutar cada 10 minutos
-cron.schedule("*/10 * * * *", async () => {
+// Ejecutar cada 10 minutos
+const runCronJob = async () => {
   console.log("Cron job executed at:", new Date().toISOString());
 
   try {
@@ -166,4 +164,7 @@ cron.schedule("*/10 * * * *", async () => {
       console.log("Conexión a MongoDB cerrada.");
     }
   }
-});
+};
+
+// Ejecutar el cron job manualmente en lugar de usar node-cron
+runCronJob();

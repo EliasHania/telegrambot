@@ -1,4 +1,4 @@
-name: Schedule Cron Job
+name: Run Cron Job
 
 on:
   schedule:
@@ -20,7 +20,6 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        # No es necesario especificar working-directory si package.json está en la raíz
 
       - name: Run cron job
         run: node src/api/cron.js
@@ -28,3 +27,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           MONGODB_URI: ${{ secrets.MONGODB_URI }}
+
+      - name: Post-job step to notify the cron job has finished
+        run: echo "El cron job ha terminado. Continuando con el siguiente paso..."
