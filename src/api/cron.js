@@ -2,6 +2,7 @@ import axios from "axios";
 import { config } from "dotenv";
 import { MongoClient } from "mongodb";
 import { decode } from "html-entities";
+import cron from "node-cron";
 
 // Cargar variables de entorno
 config();
@@ -18,7 +19,7 @@ let db, collection;
 
 // Conectar a la base de datos y mantener la conexión abierta
 const connectToDatabase = async () => {
-  if (!client.isConnected()) {
+  if (!client.topology || !client.topology.isConnected()) {
     try {
       await client.connect();
       db = client.db(dbName);
