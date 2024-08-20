@@ -2,7 +2,6 @@ import axios from "axios";
 import { config } from "dotenv";
 import { MongoClient } from "mongodb";
 import { decode } from "html-entities";
-import cron from "node-cron";
 
 // Cargar variables de entorno
 config();
@@ -159,7 +158,7 @@ const runCronJob = async () => {
     console.error("Error in cron job:", error);
   } finally {
     // Cerrar la conexión a la base de datos
-    if (client.topology.isConnected()) {
+    if (client.topology && client.topology.isConnected()) {
       await client.close();
       console.log("Conexión a MongoDB cerrada.");
     }
