@@ -2,7 +2,7 @@ name: Schedule Cron Job
 
 on:
   schedule:
-    - cron: "*/1 * * * *" # Ejecutar cada minuto
+    - cron: "*/10 * * * *" # Ejecutar cada 10 minutos
   workflow_dispatch: # Permite ejecutar el flujo de trabajo manualmente desde GitHub
 
 jobs:
@@ -20,6 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+        # No es necesario especificar working-directory si package.json está en la raíz
 
       - name: Run cron job
         run: node src/api/cron.js
