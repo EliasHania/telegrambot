@@ -120,10 +120,13 @@ const handleNewNews = async () => {
     }
 
     console.log("Número de artículos nuevos enviados:", newArticles.length);
-    return newArticles.length; // Devolver el número de artículos nuevos enviados
+
+    if (newArticles.length === 0) {
+      console.log("No hay noticias nuevas. Deteniendo el cron job...");
+      process.exit(0); // Detiene la ejecución del cron job
+    }
   } catch (error) {
     console.error("Error handling news:", error);
-    return 0; // Devolver 0 en caso de error para asegurar que el cron no se quede colgado
   }
 };
 
@@ -144,8 +147,8 @@ const deleteOldNews = async () => {
   }
 };
 
-// Configurar el cron job para ejecutar cada minuto
-const job = cron.schedule("*/1 * * * *", async () => {
+// Configurar el cron job para ejecutar cada 10 minutos
+cron.schedule("*/10 * * * *", async () => {
   console.log("Cron job executed at:", new Date().toISOString());
 
   try {
@@ -153,20 +156,14 @@ const job = cron.schedule("*/1 * * * *", async () => {
     await deleteOldNews();
 
     // Luego, manejar nuevas noticias
-    const newArticlesCount = await handleNewNews();
-
-    // Si no hay noticias nuevas, detener el cron job
-    if (newArticlesCount === 0) {
-      console.log("No hay noticias nuevas. Deteniendo el cron job...");
-      job.stop(); // Detener el cron job
-
-      // Cerrar la conexión a la base de datos
-      if (client.isConnected()) {
-        await client.close();
-        console.log("Conexión a MongoDB cerrada.");
-      }
-    }
+    await handleNewNews();
   } catch (error) {
     console.error("Error in cron job:", error);
+  } finally {
+    // Cerrar la conexión a la base de datos
+    if (client.topology.isConnected()) {
+      await client.close();
+      console.log("Conexión a MongoDB cerrada.");
+    }
   }
 });
