@@ -1,8 +1,8 @@
 name: Run Cron Job
 
 on:
-  schedule:
-    - cron: "*/10 * * * *" # Ejecutar cada 10 minutos
+  # schedule:
+  #   - cron: "*/10 * * * *" # Ejecutar cada 10 minutos y lo he parado para que no se ejecute
   workflow_dispatch: # Permite ejecutar el flujo de trabajo manualmente desde GitHub
 
 jobs:
